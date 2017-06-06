@@ -58,12 +58,14 @@ type gg struct {
 	NoGit       bool           `arg:"--who-needs-backups"`
 	PostProc    string         `arg:"--post-proc"`
 	regexp      *regexp.Regexp `arg:"-"`
+	git         *git           `arg:"-"`
 }
 
 func newGoGrep() (*gg, error) {
 	g := &gg{
 		Workers: runtime.NumCPU() * 2,
 		Basedir: ".",
+		git:     &git{},
 	}
 	if err := arg.Parse(g); err != nil {
 		return nil, err
@@ -192,7 +194,7 @@ func (g *gg) rewriteFile(fn string, gc chan string) error {
 	if !isGitRepo(fn) && !g.NoGit {
 		return fmt.Errorf("Matching file is not in a Git repo. Not touching (use --who-needs-backups to force)")
 	}
-	if !g.gitIsClean(fn) && !g.NoGit {
+	if !g.git.isClean(fn) && !g.NoGit {
 		return fmt.Errorf("Matching file is in dirty Git repo. Not touching (use --who-needs-backups to force)")
 	}
 	fh, err := os.Open(fn)
@@ -230,7 +232,7 @@ func (g *gg) rewriteFile(fn string, gc chan string) error {
 	if err := os.Rename(tfn, fn); err != nil {
 		return err
 	}
-	if err := gitAdd(fn); err != nil {
+	if err := g.git.add(fn); err != nil {
 		return err
 	}
 	// mark git repo as dirty
@@ -302,49 +304,6 @@ func (g *gg) walkerFunc(dir string, fc chan string) func(string, os.FileInfo, er
 	}
 }
 
-func (g *gg) gitIsClean(file string) bool {
-	if !isGitRepo(file) {
-		return false
-	}
-	gr := findGitRepo(file)
-
-	out := &bytes.Buffer{}
-	args := []string{"status", "--porcelain"}
-	args = append(args, file)
-	cmd := exec.Command("git", args...)
-	cmd.Dir = gr
-	cmd.Stdout = out
-
-	if err := cmd.Run(); err != nil {
-		fmt.Println(color.RedString("failed to check git status: %v", err))
-		return false
-	}
-
-	return out.Len() == 0
-}
-
-// gitAdd adds the listed files to the git index
-func gitAdd(file string) error {
-	if !isGitRepo(file) {
-		return fmt.Errorf("not a git repo")
-	}
-	gr := findGitRepo(file)
-	file = strings.TrimPrefix(file, findGitRepo(file)+"/")
-
-	args := []string{"add", "--all"}
-	args = append(args, file)
-	cmd := exec.Command("git", args...)
-	cmd.Dir = gr
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to add files to git: %v", err)
-	}
-
-	return nil
-}
-
 func (g *gg) commiter(gc chan string, dc chan struct{}) {
 	repos := make(map[string]struct{}, 10)
 	for fn := range gc {
@@ -352,57 +311,9 @@ func (g *gg) commiter(gc chan string, dc chan struct{}) {
 	}
 	for repo := range repos {
 		fmt.Println(color.MagentaString("%s", repo))
-		if err := gitCommit(repo, fmt.Sprintf("gg - Replaced '%s' with '%s'", g.Pattern, g.Replacement)); err != nil {
+		if err := g.git.commit(repo, fmt.Sprintf("gg - Replaced '%s' with '%s'", g.Pattern, g.Replacement)); err != nil {
 			fmt.Println(color.RedString("Failed to commit change to repo %s: %s", repo, err))
 		}
 	}
 	dc <- struct{}{}
-}
-
-// gitCommit creates a new git commit with the given commit message
-func gitCommit(repo, msg string) error {
-	if !isGitRepo(repo) {
-		return fmt.Errorf("not a git repo")
-	}
-
-	cmd := exec.Command("git", "commit", "-m", msg)
-	cmd.Dir = repo
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to commit files to git: %v", err)
-	}
-
-	return nil
-}
-
-func findGitRepo(fn string) string {
-	for {
-		if fn == "" || fn == "/" {
-			return ""
-		}
-		gfn := filepath.Join(fn, ".git")
-		_, err := os.Stat(gfn)
-		if err == nil {
-			return fn
-		}
-		fn = filepath.Dir(fn)
-	}
-	return ""
-}
-
-func isGitRepo(fn string) bool {
-	for {
-		if fn == "" || fn == "/" {
-			return false
-		}
-		gfn := filepath.Join(fn, ".git")
-		_, err := os.Stat(gfn)
-		if err == nil {
-			return true
-		}
-		fn = filepath.Dir(fn)
-	}
-	return false
 }
