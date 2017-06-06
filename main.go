@@ -222,7 +222,7 @@ func (g *gg) rewriteFile(fn string, gc chan string) error {
 
 	if g.PostProc != "" {
 		if err := g.runPostProc(tfn); err != nil {
-			fmt.Println(color.YellowString("PostProc %s failed on %s: %s"), g.PostProc, fn, err)
+			fmt.Println(color.YellowString("PostProc %s failed on %s: %s", g.PostProc, fn, err))
 		}
 	}
 
