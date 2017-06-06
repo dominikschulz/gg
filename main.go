@@ -351,6 +351,7 @@ func (g *gg) commiter(gc chan string, dc chan struct{}) {
 		repos[findGitRepo(fn)] = struct{}{}
 	}
 	for repo := range repos {
+		fmt.Println(color.MagentaString("%s", repo))
 		if err := gitCommit(repo, fmt.Sprintf("gg - Replaced '%s' with '%s'", g.Pattern, g.Replacement)); err != nil {
 			fmt.Println(color.RedString("Failed to commit change to repo %s: %s", repo, err))
 		}
