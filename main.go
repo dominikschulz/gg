@@ -262,15 +262,15 @@ func (g *gg) replaceMatch(line string) string {
 func (g *gg) printMatch(fm fileMatch, ln uint64, line string) {
 	match := g.regexp.FindString(line)
 	coloredLine := g.regexp.ReplaceAllString(line, colMatch(match))
-	fmt.Fprintf(fm.buf, color.GreenString(strconv.FormatUint(ln, 10))+": ")
+	fmt.Fprint(fm.buf, color.GreenString(strconv.FormatUint(ln, 10))+": ")
 	if g.Replacement == "" {
-		fmt.Fprintf(fm.buf, coloredLine+"\n")
+		fmt.Fprint(fm.buf, coloredLine+"\n")
 		return
 	}
-	fmt.Fprintf(fm.buf, "\n")
-	fmt.Fprintf(fm.buf, colMatch("-")+coloredLine+"\n")
+	fmt.Fprint(fm.buf, "\n")
+	fmt.Fprint(fm.buf, colMatch("-")+coloredLine+"\n")
 	replacedLine := g.regexp.ReplaceAllString(line, colRepl(g.Replacement))
-	fmt.Fprintf(fm.buf, colRepl("+")+replacedLine+"\n")
+	fmt.Fprint(fm.buf, colRepl("+")+replacedLine+"\n")
 	return
 }
 
