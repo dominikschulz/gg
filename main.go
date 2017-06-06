@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/crypto/ssh/terminal"
+
 	"github.com/alexflint/go-arg"
 	"github.com/fatih/color"
 )
@@ -27,6 +29,11 @@ type fileMatch struct {
 }
 
 func main() {
+	// only emit color codes when stdout is a terminal
+	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
+		color.NoColor = true
+	}
+
 	g, err := newGoGrep()
 	if err != nil {
 		fmt.Println(color.RedString("Error: %s\n", err))
