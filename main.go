@@ -222,7 +222,7 @@ func (g *gg) rewriteFile(fn string, gc chan string) error {
 
 	if g.PostProc != "" {
 		if err := g.runPostProc(tfn); err != nil {
-			return err
+			fmt.Println(color.YellowString("PostProc %s failed on %s: %s"), g.PostProc, fn, err)
 		}
 	}
 
@@ -249,7 +249,7 @@ func (g *gg) runPostProc(fn string) error {
 	cmd := exec.Command(p[0], p[1:]...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		fmt.Println(string(out))
+		fmt.Println(color.RedString(string(out)))
 		return err
 	}
 	return nil
