@@ -213,8 +213,8 @@ func (g *gg) rewriteFile(fn string, gc chan string) error {
 		if g.regexp.MatchString(line) {
 			line = g.replaceMatch(line)
 		}
-		fmt.Fprintf(tfh, line)
-		fmt.Fprintf(tfh, "\n")
+		fmt.Fprint(tfh, line)
+		fmt.Fprint(tfh, "\n")
 	}
 	tfh.Close()
 
