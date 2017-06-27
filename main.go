@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -149,6 +151,24 @@ func fileMode(fn string) os.FileMode {
 	return 0755
 }
 
+func isText(fn string, fh io.ReadSeeker) bool {
+	if ext := filepath.Ext(fn); ext != "" {
+		return true
+	}
+	// try to detect content type
+	buffer := make([]byte, 512)
+	defer fh.Seek(0, 0)
+	if _, err := fh.Read(buffer); err != nil && err != io.EOF {
+		fmt.Println(color.RedString("Failed to infer content type %s: %s", fn, err))
+		return false
+	}
+	ct := http.DetectContentType(buffer)
+	if strings.HasSuffix(ct, "text/") {
+		return true
+	}
+	return false
+}
+
 func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan struct{}) {
 	for fn := range fc {
 		if g.Pattern == "" {
@@ -158,6 +178,13 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 		fh, err := os.Open(fn)
 		if err != nil {
 			fmt.Println(color.RedString("Failed to open file %s: %s", fn, err))
+			continue
+		}
+		if fi, err := fh.Stat(); err == nil && !fi.Mode().IsRegular() {
+			continue
+		}
+		if !isText(fn, fh) {
+			//fmt.Println(color.YellowString("Skipping non-source file: %s", fn))
 			continue
 		}
 		fm := fileMatch{
