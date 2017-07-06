@@ -48,6 +48,10 @@ func (g *git) add(file string) error {
 	if !isGitRepo(file) {
 		return fmt.Errorf("not a git repo")
 	}
+	file, err := filepath.Abs(file)
+	if err != nil {
+		return err
+	}
 	gr := findGitRepo(file)
 	file = strings.TrimPrefix(file, gr+"/")
 
@@ -87,7 +91,16 @@ func (g *git) commit(repo, msg string) error {
 }
 
 func findGitRepo(fn string) string {
+	fn, err := filepath.Abs(fn)
+	if err != nil {
+		panic(err)
+	}
+	var cnt uint8
 	for {
+		cnt++
+		if cnt > 10 {
+			return ""
+		}
 		if fn == "" || fn == "/" {
 			return ""
 		}
@@ -102,7 +115,17 @@ func findGitRepo(fn string) string {
 }
 
 func isGitRepo(fn string) bool {
+	fn, err := filepath.Abs(fn)
+	if err != nil {
+		panic(err)
+	}
+	var cnt uint8
 	for {
+		cnt++
+		if cnt > 10 {
+			return false
+		}
+		fn = strings.TrimSpace(fn)
 		if fn == "" || fn == "/" {
 			return false
 		}
