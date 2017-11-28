@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -59,6 +60,7 @@ type gg struct {
 	Overwrite   bool           `arg:"--eat-my-data"`
 	NoGit       bool           `arg:"--who-needs-backups"`
 	PostProc    string         `arg:"--post-proc"`
+	Sort        bool           `arg:"--sort"`
 	regexp      *regexp.Regexp `arg:"-"`
 	git         *git           `arg:"-"`
 }
@@ -132,12 +134,33 @@ func (g *gg) walk(dir string) error {
 }
 
 func (g *gg) printer(mc chan fileMatch, dc chan struct{}) {
-	for m := range mc {
-		fmt.Println(color.MagentaString(strings.TrimPrefix(m.fn, g.Basedir)))
-		fmt.Println(m.buf.String())
-		fmt.Println("")
+	defer func() {
+		dc <- struct{}{}
+	}()
+	var buf map[string]string
+	if g.Sort {
+		buf = make(map[string]string, 100)
 	}
-	dc <- struct{}{}
+	for m := range mc {
+		fn := strings.TrimPrefix(m.fn, g.Basedir)
+		out := fmt.Sprintf(color.MagentaString(fn+"\n")) + m.buf.String() + "\n\n"
+		if g.Sort {
+			buf[fn] = out
+			continue
+		}
+		fmt.Println(out)
+	}
+	if buf == nil {
+		return
+	}
+	keys := make([]string, 0, len(buf))
+	for k := range buf {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Println(buf[k])
+	}
 }
 
 func tempFileName(fn string) string {
