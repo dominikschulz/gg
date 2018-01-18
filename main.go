@@ -178,13 +178,16 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 		fh, err := os.Open(fn)
 		if err != nil {
 			fmt.Println(color.RedString("Failed to open file %s: %s", fn, err))
+			fh.Close()
 			continue
 		}
 		if fi, err := fh.Stat(); err == nil && !fi.Mode().IsRegular() {
+			fh.Close()
 			continue
 		}
 		if !isText(fn, fh) {
 			//fmt.Println(color.YellowString("Skipping non-source file: %s", fn))
+			fh.Close()
 			continue
 		}
 		fm := fileMatch{
