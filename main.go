@@ -57,6 +57,7 @@ type gg struct {
 	Workers     int            `arg:"--workers"`
 	Replacement string         `arg:"--replace"`
 	Excludes    []string       `arg:"--exclude"`
+	Includes    []string       `arg:"--include"`
 	Overwrite   bool           `arg:"--eat-my-data"`
 	NoGit       bool           `arg:"--who-needs-backups"`
 	PostProc    string         `arg:"--post-proc"`
@@ -344,6 +345,9 @@ func (g *gg) walkerFunc(dir string, fc chan string) func(string, os.FileInfo, er
 		if path == dir {
 			return nil
 		}
+		if !g.includes(path) {
+			return nil
+		}
 		for _, e := range g.Excludes {
 			if m, _ := filepath.Match(e, path); m {
 				return nil
@@ -355,6 +359,22 @@ func (g *gg) walkerFunc(dir string, fc chan string) func(string, os.FileInfo, er
 		fc <- path
 		return nil
 	}
+}
+
+func (g *gg) includes(path string) bool {
+	if len(g.Includes) < 1 {
+		return true
+	}
+	path = filepath.Base(path)
+	for _, e := range g.Includes {
+		if m, _ := filepath.Match(e, path); m {
+			return true
+		}
+		if strings.Contains(path, e) {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *gg) commiter(gc chan string, dc chan struct{}) {
