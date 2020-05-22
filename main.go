@@ -39,7 +39,7 @@ func main() {
 
 	g, err := newGoGrep()
 	if err != nil {
-		fmt.Println(color.RedString("Error: %s\n", err))
+		usage(err)
 		os.Exit(1)
 	}
 
@@ -53,17 +53,36 @@ func main() {
 
 type gg struct {
 	Pattern     string         `arg:"positional"`
-	Basedir     string         `arg:"positional"`
+	Replacement string         `arg:"positional"`
+	Basedir     string         `arg:"--dir"`
 	Workers     int            `arg:"--workers"`
-	Replacement string         `arg:"--replace"`
 	Excludes    []string       `arg:"--exclude"`
 	Includes    []string       `arg:"--include"`
-	Overwrite   bool           `arg:"--eat-my-data"`
-	NoGit       bool           `arg:"--who-needs-backups"`
+	DryRun      bool           `arg:"--dry-run"`
+	Commit      bool           `arg:"--commit"`
 	PostProc    string         `arg:"--post-proc"`
 	Sort        bool           `arg:"--sort"`
+	ReplaceNone bool           `arg:"--replace-empty"`
 	regexp      *regexp.Regexp `arg:"-"`
 	git         *git           `arg:"-"`
+}
+
+func usage(e error) {
+	if e != nil {
+		fmt.Println(color.RedString("Error: %s\n", e))
+	}
+	fmt.Println("go-git-grep - Usage: gg <pattern> [<replacement>]")
+	fmt.Println("  Search for <pattern> recrusively. Optionally replace matches with <replacement>.")
+	fmt.Println("  [--dir=<base dir>] - Start in <base dir>")
+	fmt.Println("  [--workers=<num workers>] - Use this number of workers (default: CPU Cores * 2)")
+	fmt.Println("  [--exclude] - Exclude this pattern (glob)")
+	fmt.Println("  [--include] - Include this pattern (glob)")
+	fmt.Println("  [--dry-run] - Do not make any changes")
+	fmt.Println("  [--commit]  - Create a new git commit with the changes")
+	fmt.Println("  [--post-proc] - Post-process each file (e.g. go fmt)")
+	fmt.Println("  [--sort]    - Print sorted results")
+	fmt.Println("  [--replace-empty] - Replace with emtpy replacement pattern")
+	os.Exit(1)
 }
 
 func newGoGrep() (*gg, error) {
@@ -151,6 +170,7 @@ func (g *gg) printer(mc chan fileMatch, dc chan struct{}) {
 		}
 		fmt.Println(out)
 	}
+	// if no sort was requested or nothing to show exit
 	if buf == nil {
 		return
 	}
@@ -230,7 +250,7 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 
 		fh.Close()
 		if fm.buf.Len() > 0 {
-			if g.Overwrite {
+			if !g.DryRun {
 				if err := g.rewriteFile(fn, gc); err != nil {
 					fmt.Println(color.RedString("Failed to rewrite file %s: %s", fn, err))
 				}
@@ -242,14 +262,14 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 }
 
 func (g *gg) rewriteFile(fn string, gc chan string) error {
-	if !g.Overwrite {
+	if g.DryRun {
 		return nil
 	}
-	if !isGitRepo(fn) && !g.NoGit {
-		return fmt.Errorf("Matching file is not in a Git repo. Not touching (use --who-needs-backups to force)")
+	if !isGitRepo(fn) && g.Commit {
+		return fmt.Errorf("Matching file is not in a Git repo. Not touching (use --commit=false to force)")
 	}
-	if !g.git.isClean(fn) && !g.NoGit {
-		return fmt.Errorf("Matching file is in dirty Git repo. Not touching (use --who-needs-backups to force)")
+	if !g.git.isClean(fn) && g.Commit {
+		return fmt.Errorf("Matching file is in dirty Git repo. Not touching (use --commit=false to force)")
 	}
 	fh, err := os.Open(fn)
 	if err != nil {
@@ -286,11 +306,13 @@ func (g *gg) rewriteFile(fn string, gc chan string) error {
 	if err := os.Rename(tfn, fn); err != nil {
 		return err
 	}
-	if err := g.git.add(fn); err != nil {
-		return err
+	if g.Commit {
+		if err := g.git.add(fn); err != nil {
+			return err
+		}
+		// mark git repo as dirty
+		gc <- fn
 	}
-	// mark git repo as dirty
-	gc <- fn
 	return nil
 }
 
@@ -310,6 +332,9 @@ func (g *gg) runPostProc(fn string) error {
 }
 
 func (g *gg) replaceMatch(line string) string {
+	if g.Replacement == "" && !g.ReplaceNone {
+		return line
+	}
 	return g.regexp.ReplaceAllString(line, g.Replacement)
 }
 
@@ -317,7 +342,7 @@ func (g *gg) printMatch(fm fileMatch, ln uint64, line string) {
 	match := g.regexp.FindString(line)
 	coloredLine := g.regexp.ReplaceAllString(line, colMatch(match))
 	fmt.Fprint(fm.buf, color.GreenString(strconv.FormatUint(ln, 10))+": ")
-	if g.Replacement == "" {
+	if g.Replacement == "" && !g.ReplaceNone {
 		fmt.Fprint(fm.buf, coloredLine+"\n")
 		return
 	}
@@ -378,9 +403,15 @@ func (g *gg) includes(path string) bool {
 }
 
 func (g *gg) commiter(gc chan string, dc chan struct{}) {
+	defer func() {
+		dc <- struct{}{}
+	}()
 	repos := make(map[string]struct{}, 10)
 	for fn := range gc {
 		repos[findGitRepo(fn)] = struct{}{}
+	}
+	if !g.Commit {
+		return
 	}
 	for repo := range repos {
 		fmt.Println(color.MagentaString("%s", repo))
@@ -388,5 +419,4 @@ func (g *gg) commiter(gc chan string, dc chan struct{}) {
 			fmt.Println(color.RedString("Failed to commit change to repo %s: %s", repo, err))
 		}
 	}
-	dc <- struct{}{}
 }
