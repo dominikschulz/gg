@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -218,6 +219,10 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 		if g.Pattern == "" {
 			continue
 		}
+		if !strings.HasSuffix(fn, ".sql") {
+			continue
+		}
+		//fmt.Printf("scanning file %s\n", fn)
 		// scan and match file, possibly replace
 		fh, err := os.Open(fn)
 		if err != nil {
@@ -226,11 +231,12 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 			continue
 		}
 		if fi, err := fh.Stat(); err == nil && !fi.Mode().IsRegular() {
+			fmt.Println(color.RedString("not regular %s", fn))
 			fh.Close()
 			continue
 		}
 		if !isText(fn, fh) {
-			//fmt.Println(color.YellowString("Skipping non-source file: %s", fn))
+			fmt.Println(color.YellowString("Skipping non-source file: %s", fn))
 			fh.Close()
 			continue
 		}
@@ -247,6 +253,10 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 				g.printMatch(fm, ln, line)
 			}
 		}
+		if err := s.Err(); err != nil {
+			log.Printf("failed to scan %s: %s", fn, err)
+		}
+		fmt.Printf("scanning file %s done\n", fn)
 
 		fh.Close()
 		if fm.buf.Len() > 0 {
