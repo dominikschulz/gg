@@ -256,7 +256,7 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 		if err := s.Err(); err != nil {
 			log.Printf("failed to scan %s: %s", fn, err)
 		}
-		fmt.Printf("scanning file %s done\n", fn)
+		//fmt.Printf("scanning file %s done\n", fn)
 
 		fh.Close()
 		if fm.buf.Len() > 0 {
