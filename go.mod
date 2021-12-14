@@ -4,14 +4,14 @@ go 1.17
 
 require (
 	github.com/alexflint/go-arg v1.4.2
-	github.com/fatih/color v1.12.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	github.com/fatih/color v1.13.0
+	golang.org/x/crypto v0.0.0-20211209193657-4570a0811e8b
 )
 
 require (
-	github.com/alexflint/go-scalar v1.0.0 // indirect
-	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
-	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
-	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1 // indirect
+	github.com/alexflint/go-scalar v1.1.0 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
+	golang.org/x/sys v0.0.0-20211214170744-3b038e5940ed // indirect
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 )
