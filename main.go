@@ -219,9 +219,6 @@ func (g *gg) worker(fc chan string, mc chan fileMatch, gc chan string, dc chan s
 		if g.Pattern == "" {
 			continue
 		}
-		if !strings.HasSuffix(fn, ".sql") {
-			continue
-		}
 		//fmt.Printf("scanning file %s\n", fn)
 		// scan and match file, possibly replace
 		fh, err := os.Open(fn)
